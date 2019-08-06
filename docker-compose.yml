@@ -1,0 +1,88 @@
+# tell docker what version of the docker-compose.yml were using
+version: '3'
+
+# define the network
+networks:
+  myweb:
+
+# start the services section
+services:
+  # define the name of our service
+  # corresponds to the "--name" parameter
+  docker-php-cli:
+    # define the directory where the build should happened,
+    # i.e. where the Dockerfile of the service is located
+    # all paths are relative to the location of docker-compose.yml
+    build: 
+      context: ./php-cli
+    # reserve a tty - otherwise the container shuts down immediately
+    # corresponds to the "-i" flag
+    tty: true
+    # mount the app directory of the host to /var/www in the container
+    # corresponds to the "-v" option
+    volumes:
+      - ./app:/var/www
+    # connect to the network
+    # corresponds to the "--network" option
+    networks:
+      - myweb
+  
+  docker-nginx:
+    build: 
+      context: ./nginx
+    # defines the port mapping
+    # corresponds to the "-p" flag
+    ports:
+      - "8080:80"
+    tty: true
+    volumes:
+      - ./app:/var/www
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - myweb
+
+  docker-php-fpm:
+    build: 
+      context: ./php-fpm
+    tty: true
+    volumes:
+      - ./app:/var/www
+    networks:
+      - myweb
+  mysql:
+    image: percona:5.6.35
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'db'
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: 'user'
+      # You can use whatever password you like
+      MYSQL_PASSWORD: 'password'
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      # <Port exposed> : < MySQL Port running inside container>
+      - '3306:3306'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - ./mysql:/var/lib/mysql
+    networks:
+      - myweb
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin  
+    restart: always
+    depends_on: 
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      # <Port exposed> : < MySQL Port running inside container>
+      - '8081:80'
+    networks:
+      - myweb
+  
